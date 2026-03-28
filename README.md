@@ -132,7 +132,12 @@ Get-ChildItem "C:\Logs\*.log" | ForEach-Object { Get-Hash -FilePath $_.FullName 
 ```
 
 ### MD5 and SHA1 on FIPS-enforced systems
-Systems with the Windows FIPS security policy enabled (common in government/enterprise) will throw an `AlgorithmUnavailable` error if you request `MD5` or `SHA1`. Use `SHA256`, `SHA384`, or `SHA512` in those environments.
+Requesting `MD5` or `SHA1` on a FIPS-enforced system throws an `AlgorithmUnavailable` error. Two enforcement mechanisms exist:
+
+- **Windows**: Group Policy FIPS mode — raises `CryptographicException`
+- **Linux**: kernel FIPS mode (`/proc/sys/crypto/fips_enabled`) with .NET 7+ — raises `PlatformNotSupportedException`
+
+Both are caught and translated into the same friendly error. Use `SHA256`, `SHA384`, or `SHA512` in these environments. macOS does not enforce FIPS at the OS level.
 
 ### Case sensitivity of the output digest
 By default, hex output is lowercase. Use `-Uppercase` when comparing against a published checksum that is uppercase, to avoid false mismatches from string comparison.

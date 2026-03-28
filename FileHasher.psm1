@@ -23,8 +23,9 @@ function Get-Hash {
 
         Supports MD5, SHA1, SHA256, SHA384, and SHA512.
 
-        Note: MD5 and SHA1 may be unavailable on systems with FIPS security
-        policy enforced (common in government/enterprise environments).
+        Note: MD5 and SHA1 may be unavailable on FIPS-enforced systems.
+        This includes Windows Group Policy FIPS mode and Linux kernel FIPS
+        mode (/proc/sys/crypto/fips_enabled). Use SHA256 or higher instead.
 
     .PARAMETER InputString
         The plain-text string to hash. Mutually exclusive with -FilePath.
@@ -132,12 +133,29 @@ function Get-Hash {
             }
         }
         catch [System.Security.Cryptography.CryptographicException] {
-            # FIPS-enforced systems disable MD5 and SHA1.
+            # Windows FIPS policy blocks MD5 and SHA1 with CryptographicException.
             $PSCmdlet.ThrowTerminatingError(
                 [System.Management.Automation.ErrorRecord]::new(
                     [System.InvalidOperationException]::new(
                         "Algorithm '$Algorithm' is not available on this system. " +
                         "FIPS security policy may be enforced. " +
+                        "Use SHA256, SHA384, or SHA512 instead."
+                    ),
+                    'AlgorithmUnavailable',
+                    [System.Management.Automation.ErrorCategory]::InvalidOperation,
+                    $Algorithm
+                )
+            )
+            return
+        }
+        catch [System.PlatformNotSupportedException] {
+            # Linux kernel FIPS mode (.NET 7+) raises PlatformNotSupportedException
+            # instead of CryptographicException for MD5 and SHA1.
+            $PSCmdlet.ThrowTerminatingError(
+                [System.Management.Automation.ErrorRecord]::new(
+                    [System.InvalidOperationException]::new(
+                        "Algorithm '$Algorithm' is not supported on this platform. " +
+                        "FIPS mode may be enabled at the OS level. " +
                         "Use SHA256, SHA384, or SHA512 instead."
                     ),
                     'AlgorithmUnavailable',
